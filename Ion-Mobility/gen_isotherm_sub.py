@@ -72,6 +72,12 @@ def build_directory(fname, mols):
     f.write('\n')
     f.write('cd $SLURM_ARRAY_TASK_ID/$NCAT\n')
     f.write('\n')
+    f.write('cp ../../build.inp ./\n')
+    f.write('sed -i -e "s@AAA@$NACN@g" build.inp\n')
+    f.write('sed -i -e "s@BBB@$NCO2@g" build.inp\n')
+    f.write('sed -i -e "s@CCC@$NCAT@g" build.inp\n')
+    f.write('sed -i -e "s@DDD@$NANI@g" build.inp\n')
+    f.write('sed -i -e "s@EEE@$LNG@g" build.inp\n')
     f.write('cp ../../in.acncx ./\n')
     for i in range(4):
         f.write('cp ../../%s.txt ./\n' % mols[i])
@@ -125,6 +131,51 @@ def write_msd(fname,mols,moltypes):
         f.write('parse_msds.py -f msd_%s -n 5 -startskip 100 -endskip 0 -molname %s -label $molfrac\n' % (mols[i],mols[i]))
     f.close()
     return
+
+def write_atomfiles(mols):
+    for i in range(4):
+        f = open(mols[i]+'.txt', 'w')
+        if mols[i]=='acn':
+            natoms=3
+            M=[15.035, 12.011, 14.007]
+        elif mols[i]=='co2':
+            natoms=3
+            M=[15.999,12.011, 15.999]
+        elif mols[i]=='li':
+            natoms=1
+            M=[6.94]
+        elif mols[i]=='br':
+            natoms=1
+            M=[79.904]
+        elif mols[i]=='cl':
+            natoms=1
+            M=[35.45]
+        elif mols[i]=='pclo4':
+            natoms=5
+            M=[35.45,15.999,15.999,15.999,15.999]
+        f.write('%d\n' % natoms)
+        f.write('1\n')
+        f.write('1 1\n')
+        for m in M:
+            f.write('%.4f\n' % m)
+        f.close()
+
+def write_ff(ff):
+    f = open('build.inp','w')
+    f.write('{\n')
+    f.write('"num_components":4,\n')
+    f.write('"nspec":[AAA,BBB,CCC,DDD],\n')
+    f.write('"tspec":["%s", "%s", "%s", "%s"],\n' % (ff[0],ff[1],ff[2],ff[3]))
+    f.write('"blength":EEE,\n')
+    f.write('"e_unit":["kj","kcal","kcal","kcal"],\n')
+    f.write('"f_unit":["kcal","kcal","kcal","kcal"],\n')
+    f.write('"eo_unit":["kcal","kcal","kcal","kcal"],\n')
+    f.write('"fo_unit":["kcal","kcal","kcal","kcal"],\n')
+    f.write('"shift_f":1.0,\n')
+    f.write('"ff_type":["lj","lj","lj","lj"]\n')
+    f.write('}\n')
+    f.close()
+
     
 
 
@@ -134,17 +185,21 @@ if __name__ == "__main__":
     parser.add_argument('-f', default='sub_NIONS.sh', help='Isotherm submit script name')
     parser.add_argument('-n', default=1, help='Number of ions')
     parser.add_argument('-m', default=[], help='Name of ions (should be 2)', action='append')
+    parser.add_argument('-ff', default=[], help='Name of ff (should be 2)', action='append')
     args = parser.parse_args()
 
 
     nions = int(args.n)
     fname = str(args.f)
     mols = ['acn', 'co2']+args.m
+    ff = ['acn_maroncelli', 'co2_epm2']+args.ff
     moltypes = ['ACN', 'CO2', 'CAT', 'ANI']
+    write_ff(ff)
     sbatch_lines(fname, nions)
     write_header(fname,nions)
     set_vars(fname, 1,5)
     build_directory(fname, mols)
     write_msd(fname,mols,moltypes)
+    write_atomfiles(mols)
 
 
